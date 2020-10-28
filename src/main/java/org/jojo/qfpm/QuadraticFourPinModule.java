@@ -14,6 +14,7 @@ import org.jojo.flow.exc.ParsingException;
 import org.jojo.flow.model.api.IInternalConfig;
 import org.jojo.flow.model.api.IModulePin;
 import org.jojo.flow.model.api.IRigidPin;
+import org.jojo.flow.model.api.PinOrientation;
 import org.jojo.flow.model.data.Fraction;
 import org.jojo.flow.model.data.units.Frequency;
 import org.jojo.flow.model.flowChart.GraphicalRepresentation;
@@ -33,35 +34,86 @@ import org.jojo.flow.model.storeLoad.PointDOM;
 import org.jojo.flow.model.util.OK;
 
 public class QuadraticFourPinModule extends FlowModule {
-    private static final Point INPOS = new Point(50, 50); //TODO hier und generell ueberall korrekte gr setzen
+    private static final int WIDTH = 200;
+    private static final int PIN_WIDTH = 10;
+    
     private IModulePin pinOut;
     private IModulePin pinIn;
     private List<IModulePin> rigidPins;
     
+    private QFPModuleGR gr;
+    
     public QuadraticFourPinModule(int id, ExternalConfig externalConfig) {
         super(id, externalConfig);
+        this.gr = new QFPModuleGR(new Point(0,0), WIDTH, WIDTH, "QFPM"); 
+        this.gr.setModule(this);
+        
+        this.pinOut = loadPin(OutputPin.class.getName(), DefaultPin.class.getName(), this);
+        this.pinIn = loadPin(InputPin.class.getName(), DefaultPin.class.getName(), this);
+        
+        this.rigidPins = new ArrayList<>();
+        final IRigidPin rigidPinOne = loadRigidPin(this);
+        final IRigidPin rigidPinTwo = loadRigidPin(this);
+        this.rigidPins.add(rigidPinOne.getOutputPin());
+        this.rigidPins.add(rigidPinOne.getInputPin());
+        this.rigidPins.add(rigidPinTwo.getOutputPin());
+        this.rigidPins.add(rigidPinTwo.getInputPin());
+        
+        correctPinsGrs();
+    }
+    
+    private void correctPinsGrs() {
+        this.pinOut.getGraphicalRepresentation().setPosition(getOutpos());
+        ((ModulePinGR) this.pinOut.getGraphicalRepresentation()).setLinePoint(getOutpos());
+        this.pinIn.getGraphicalRepresentation().setPosition(getInpos());
+        ((ModulePinGR) this.pinIn.getGraphicalRepresentation()).setLinePoint(getInpos());
+        
+        ((ModulePinGR) this.rigidPins.get(0).getGraphicalRepresentation())
+        .setPinOrientation(PinOrientation.UP);
+        ((ModulePinGR) this.rigidPins.get(1).getGraphicalRepresentation())
+        .setPinOrientation(PinOrientation.UP);
+        this.rigidPins.get(0).getGraphicalRepresentation().setPosition(getRigOnepos());
+        this.rigidPins.get(1).getGraphicalRepresentation().setPosition(getRigOnepos());
+        this.rigidPins.get(2).getGraphicalRepresentation().setPosition(getRigTwopos());
+        this.rigidPins.get(3).getGraphicalRepresentation().setPosition(getRigTwopos());
+        this.rigidPins.forEach(p -> {
+            ((ModulePinGR) p.getGraphicalRepresentation())
+                    .setLinePoint(p.getGraphicalRepresentation().getPosition());
+            ((ModulePinGR) p.getGraphicalRepresentation()).setWidth(PIN_WIDTH);
+            ((ModulePinGR) p.getGraphicalRepresentation()).setHeight(PIN_WIDTH);
+        });
+    }
+    
+    private Point getInpos() {
+        final int x = this.gr.getPosition().x - PIN_WIDTH;
+        final int y = this.gr.getPosition().y + (WIDTH / 2);
+        return new Point(x, y);
+    }
+    
+    private Point getOutpos() {
+        final int x = this.gr.getPosition().x + WIDTH;
+        final int y = this.gr.getPosition().y + (WIDTH / 2);
+        return new Point(x, y);
+    }
+    
+    private Point getRigOnepos() {
+        final int x = this.gr.getPosition().x + (WIDTH / 2);
+        final int y = this.gr.getPosition().y - PIN_WIDTH;
+        return new Point(x, y);
+    }
+    
+    private Point getRigTwopos() {
+        final int x = this.gr.getPosition().x + (WIDTH / 2);
+        final int y = this.gr.getPosition().y + WIDTH;
+        return new Point(x, y);
     }
     
     @Override
     public List<IModulePin> getAllModulePins() {
+        correctPinsGrs();
         final List<IModulePin> ret = new ArrayList<>();
-        this.pinOut = this.pinOut == null ? loadPin(OutputPin.class.getName(), DefaultPin.class.getName(), this) : this.pinOut;
-        this.pinIn = this.pinIn == null ? loadPin(InputPin.class.getName(), DefaultPin.class.getName(), this) : this.pinIn;
-        this.pinIn.getGraphicalRepresentation().setPosition(INPOS);
         ret.add(this.pinOut);
         ret.add(this.pinIn);
-        if (this.rigidPins == null) {
-            this.rigidPins = new ArrayList<>();
-            final IRigidPin rigidPinOne = loadRigidPin(this);
-            ((ModulePinGR) rigidPinOne.getOutputPin().getGraphicalRepresentation()).setLinePoint(RIGID_ONE_POS());
-            
-            final IRigidPin rigidPinTwo = loadRigidPin(this);
-            ((ModulePinGR) rigidPinTwo.getOutputPin().getGraphicalRepresentation()).setLinePoint(RIGID_TWO_POS());
-            this.rigidPins.add(rigidPinOne.getOutputPin());
-            this.rigidPins.add(rigidPinOne.getInputPin());
-            this.rigidPins.add(rigidPinTwo.getOutputPin());
-            this.rigidPins.add(rigidPinTwo.getInputPin());
-        }
         ret.addAll(this.rigidPins);
         return ret;
     }
@@ -192,12 +244,10 @@ public class QuadraticFourPinModule extends FlowModule {
         // TODO Auto-generated method stub
         return true;
     } 
-
+    
     @Override
     public GraphicalRepresentation getGraphicalRepresentation() {
-        QFPModuleGR ret = new QFPModuleGR(new Point(0,0), 10, 10, "QFPM"); //TODO correct pos and size!
-        ret.setModule(this);
-        return ret;
+        return this.gr;
     }
 
     @Override
